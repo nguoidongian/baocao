@@ -1,51 +1,93 @@
-# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import streamlit as st
-from streamlit.logger import get_logger
+import pandas as pd
+import plotly.express as px
+from datetime import datetime
+st.set_page_config(page_title='KHO VPIC1',layout="wide")
+column1, column2 = st.columns(2)
+# Function to save data to CSV file
+def save_to_csv(data, filename):
+    data.to_csv(filename, index=False)
 
-LOGGER = get_logger(__name__)
+# Function to plot bar chart from CSV data
+def plot_bar_chart(data, y_column, selected_category, chart_title):
+    filtered_data = data[data["Mã kho ERP"] == selected_category]
+    fig = px.bar(filtered_data, x="Ngày gửi báo cáo", y=y_column, title=chart_title)
+    st.plotly_chart(fig)
 
+# Main function of the application
+with column1:
+    def main():
+        st.title("Nhập Dữ liệu và Vẽ Biểu Đồ")
 
-def run():
-    st.set_page_config(
-        page_title="Hello",
-        page_icon="👋",
-    )
+    # Sidebar options
+        st.sidebar.header("Tùy chọn Người dùng")
+        user_action = st.sidebar.radio("Chọn Hành động", ["Nhập Dữ liệu", "Xem Biểu Đồ"])
 
-    st.write("# Welcome to Streamlit! 👋")
+        if user_action == "Nhập Dữ liệu":
+            input_data()
+        elif user_action == "Xem Biểu Đồ":
+            view_charts()
 
-    st.sidebar.success("Select a demo above.")
+# Function to input data and save to CSV
+    def input_data():
+        st.header("Nhập Dữ liệu và Lưu vào File CSV")
 
-    st.markdown(
-        """
-        Streamlit is an open-source app framework built specifically for
-        Machine Learning and Data Science projects.
-        **👈 Select a demo from the sidebar** to see some examples
-        of what Streamlit can do!
-        ### Want to learn more?
-        - Check out [streamlit.io](https://streamlit.io)
-        - Jump into our [documentation](https://docs.streamlit.io)
-        - Ask a question in our [community
-          forums](https://discuss.streamlit.io)
-        ### See more complex demos
-        - Use a neural net to [analyze the Udacity Self-driving Car Image
-          Dataset](https://github.com/streamlit/demo-self-driving)
-        - Explore a [New York City rideshare dataset](https://github.com/streamlit/demo-uber-nyc-pickups)
-    """
-    )
+    # Display input fields for Category, Value1, Value2, and Date
+        category_input = st.text_input("Nhập Mã kho ERP:")
+        value1_input = st.number_input("Nhập số mã fifo sai:", key="value1")
+        value2_input = st.number_input("Nhập số phiếu chưa xác nhận:", key="value2")
+        date_input = st.date_input("Chọn Ngày gửi báo cáo:", key="date")
 
+    # Button to save data to CSV
+        if st.button("Xác nhận"):
+            if not category_input:
+                st.warning("Vui lòng nhập Mã kho ERP.")
+            else:
+            # Read existing CSV file or create an empty DataFrame
+                try:
+                    data = pd.read_csv("data.csv")
+                except (FileNotFoundError, pd.errors.EmptyDataError):
+                    data = pd.DataFrame(columns=["Mã kho ERP", "Số mã fifo sai", "Phiếu chưa xác nhận", "Ngày gửi báo cáo"])
 
+            # Append new data to DataFrame
+                new_data = pd.DataFrame({
+                    "Mã kho ERP": [category_input],
+                    "Số mã fifo sai": [value1_input],
+                    "Phiếu chưa xác nhận": [value2_input],
+                    "Ngày gửi báo cáo": [date_input.strftime("%Y-%m-%d")],  # Format date as string
+                })
+                data = pd.concat([data, new_data], ignore_index=True)
+
+            # Save to CSV file
+                save_to_csv(data, "data.csv")
+                st.success("Dữ liệu đã được thêm và lưu vào file CSV.")
+
+# Function to view bar charts from CSV data
+def view_charts():
+    st.header("Xem Biểu Đồ theo Ngày từ Dữ liệu CSV")
+
+    # Read data from CSV file or display a message if the file is empty or not found
+    try:
+        data = pd.read_csv("data.csv")
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        st.info("Không có dữ liệu nào để hiển thị. Vui lòng nhập dữ liệu trước.")
+
+    # Display data
+    st.subheader("Dữ liệu từ File CSV:")
+    st.write(data)
+
+    # Filter by "Mã kho ERP"
+    selected_category = st.selectbox("Chọn Mã kho ERP:", data["Mã kho ERP"].unique())
+
+    # Plot bar chart for "Số mã fifo sai"
+    if not data.empty:
+        plot_bar_chart(data, y_column="Số mã fifo sai", selected_category=selected_category,
+                       chart_title=f"Biểu đồ Số mã fifo sai theo Ngày - Mã kho {selected_category}")
+
+        # Plot bar chart for "Phiếu chưa xác nhận"
+        plot_bar_chart(data, y_column="Phiếu chưa xác nhận", selected_category=selected_category,
+                       chart_title=f"Biểu đồ Phiếu chưa xác nhận theo Ngày - Mã kho {selected_category}")
+
+# Run the main function
 if __name__ == "__main__":
-    run()
+    main()
